@@ -5,11 +5,16 @@ import keyboard
 from PyQt5 import QtWidgets, QtGui
 import xml.etree.ElementTree
 
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
 class ProcessSelectorDialog(QtWidgets.QDialog):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('Select a running application')
         self.setGeometry(100, 100, 300, 400)
+        self.setWindowIcon(QtGui.QIcon(resource_path("icon.ico")))
 
         layout = QtWidgets.QVBoxLayout()
 
@@ -72,6 +77,7 @@ class CPULimiterUI(QtWidgets.QMainWindow):
     def initUI(self):
         self.setWindowTitle('CPU Core Limiter')
         self.setGeometry(100, 100, 400, 200)
+        self.setWindowIcon(QtGui.QIcon('icon.ico'))
 
         centralWidget = QtWidgets.QWidget()
         self.setCentralWidget(centralWidget)
@@ -232,6 +238,7 @@ class KeyBinderDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.setWindowTitle('Bind Keys to CPU Core Counts')
         self.setGeometry(100, 100, 300, 200)
+        self.setWindowIcon(QtGui.QIcon('icon.ico'))
 
         layout = QtWidgets.QVBoxLayout()
 
