@@ -3,6 +3,7 @@ import psutil
 import os
 import keyboard
 from PyQt5 import QtWidgets, QtGui
+import xml.etree.ElementTree
 
 class ProcessSelectorDialog(QtWidgets.QDialog):
     def __init__(self):
@@ -63,7 +64,9 @@ class CPULimiterUI(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
-        self.keyBindings = []
+        self.keyBindings = {}
+        self.selected_executable = None
+        self.loadKeyBindings()
 
     def initUI(self):
         self.setWindowTitle('CPU Core Limiter')
@@ -111,30 +114,60 @@ class CPULimiterUI(QtWidgets.QMainWindow):
         dialog = KeyBinderDialog(self)
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
             key, num_cores = dialog.getBinding()
-            if key and num_cores:
+            if key and num_cores and self.selected_executable:
                 try:
                     formatted_key = key.lower().replace(' ', '+')
                     keyboard.add_hotkey(formatted_key, self.applyCPULimit, args=[num_cores])
-                    self.keyBindings.append((formatted_key, num_cores))
-                    print(f"Bound key {formatted_key} to {num_cores} CPU cores")
+                    if self.selected_executable not in self.keyBindings:
+                        self.keyBindings[self.selected_executable] = []
+                    self.keyBindings[self.selected_executable].append((formatted_key, num_cores))
+                    print(f"Bound key {formatted_key} to {num_cores} CPU cores for {self.selected_executable}")
                     self.updateKeyBindingsList()
+                    self.saveKeyBindings()
                 except ValueError as e:
                     print(f"Error binding key: {e}")
 
     def removeSelectedKeyBinding(self):
         selected_item = self.keyBindingsListWidget.currentItem()
-        if selected_item:
+        if selected_item and self.selected_executable:
             key_binding_text = selected_item.text()
             key = key_binding_text.split(' -> ')[0].split(': ')[1]
-            self.keyBindings = [kb for kb in self.keyBindings if kb[0] != key]
+            self.keyBindings[self.selected_executable] = [kb for kb in self.keyBindings[self.selected_executable] if kb[0] != key]
             keyboard.remove_hotkey(key)
             self.updateKeyBindingsList()
-            print(f"Removed key binding {key}")
+            self.saveKeyBindings()
+            print(f"Removed key binding {key} for {self.selected_executable}")
 
     def updateKeyBindingsList(self):
         self.keyBindingsListWidget.clear()
-        for key, num_cores in self.keyBindings:
-            self.keyBindingsListWidget.addItem(f"Key: {key} -> {num_cores} CPU cores")
+        if self.selected_executable and self.selected_executable in self.keyBindings:
+            for key, num_cores in self.keyBindings[self.selected_executable]:
+                self.keyBindingsListWidget.addItem(f"Key: {key} -> {num_cores} CPU cores")
+
+    def saveKeyBindings(self):
+        root = xml.etree.ElementTree.Element("KeyBindings")
+        for exe, bindings in self.keyBindings.items():
+            exe_element = xml.etree.ElementTree.SubElement(root, "Executable", path=exe)
+            for key, num_cores in bindings:
+                binding = xml.etree.ElementTree.SubElement(exe_element, "Binding")
+                xml.etree.ElementTree.SubElement(binding, "Key").text = key
+                xml.etree.ElementTree.SubElement(binding, "NumCores").text = str(num_cores)
+        tree = xml.etree.ElementTree.ElementTree(root)
+        tree.write("keybindings.xml")
+
+    def loadKeyBindings(self):
+        if os.path.exists("keybindings.xml"):
+            tree = xml.etree.ElementTree.parse("keybindings.xml")
+            root = tree.getroot()
+            for exe_element in root.findall("Executable"):
+                exe = exe_element.get("path")
+                self.keyBindings[exe] = []
+                for binding in exe_element.findall("Binding"):
+                    key = binding.find("Key").text
+                    num_cores = int(binding.find("NumCores").text)
+                    keyboard.add_hotkey(key, self.applyCPULimit, args=[num_cores])
+                    self.keyBindings[exe].append((key, num_cores))
+            self.updateKeyBindingsList()
 
     def openProcessSelector(self):
         dialog = ProcessSelectorDialog()
@@ -142,8 +175,10 @@ class CPULimiterUI(QtWidgets.QMainWindow):
             selected_pid = dialog.getSelectedProcess()
             if selected_pid:
                 self.selected_pid = selected_pid
-                self.processLabel.setText(f'Selected PID: {selected_pid}')
+                self.selected_executable = psutil.Process(selected_pid).exe()
+                self.processLabel.setText(f'Selected PID: {selected_pid} ({self.selected_executable})')
                 self.processLabel.show()
+                self.updateKeyBindingsList()
 
     def limitCPUCores(self):
         if hasattr(self, 'selected_pid'):
@@ -164,14 +199,13 @@ class CPULimiterUI(QtWidgets.QMainWindow):
 
     def keyPressEvent(self, event):
         key = QtGui.QKeySequence(event.key()).toString()
-        for binding_key, num_cores in self.keyBindings:
+        for binding_key, num_cores in self.keyBindings.get(self.selected_executable, []):
             if key == binding_key:
                 print(f"{key} activated")
                 if hasattr(self, 'selected_pid'):
                     pid = self.selected_pid
                     p = psutil.Process(pid)
                     p.cpu_affinity(list(range(num_cores)))
-                    
                 break
 
 class KeyBinderDialog(QtWidgets.QDialog):
