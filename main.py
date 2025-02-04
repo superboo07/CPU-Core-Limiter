@@ -14,9 +14,6 @@ class ProcessSelectorDialog(QtWidgets.QDialog):
         super().__init__()
         self.setWindowTitle('Select a running application')
         self.setGeometry(100, 100, 300, 400)
-        # Waiting a second fixes a bug where the 
-        # icon doesn't show up in packaged builds
-        time.sleep(1) 
         self.setWindowIcon(QtGui.QIcon(resource_path("icon.ico")))
 
         layout = QtWidgets.QVBoxLayout()
@@ -80,6 +77,9 @@ class CPULimiterUI(QtWidgets.QMainWindow):
     def initUI(self):
         self.setWindowTitle('CPU Core Limiter')
         self.setGeometry(100, 100, 400, 200)
+        # Waiting a second fixes a bug where the 
+        # icon doesn't show up in packaged builds
+        time.sleep(1) 
         self.setWindowIcon(QtGui.QIcon('icon.ico'))
 
         centralWidget = QtWidgets.QWidget()
