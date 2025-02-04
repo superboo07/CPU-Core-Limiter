@@ -1,1 +1,1 @@
-pyinstaller --onefile main.spec
+pyinstaller main.spec
