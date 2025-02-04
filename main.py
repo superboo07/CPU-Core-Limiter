@@ -26,7 +26,8 @@ class ProcessSelectorDialog(QtWidgets.QDialog):
 
     def updateProcessList(self):
         self.processListWidget.clear()
-        for proc in psutil.process_iter(['pid', 'name']):
+        processes = sorted(psutil.process_iter(['pid', 'name']), key=lambda p: p.info['name'].lower())
+        for proc in processes:
             self.processListWidget.addItem(f"{proc.info['name']} (PID: {proc.info['pid']})")
 
     def getSelectedProcess(self):
@@ -80,6 +81,9 @@ class CPULimiterUI(QtWidgets.QMainWindow):
         self.processLabel = QtWidgets.QLabel('Select a running application:')
         layout.addWidget(self.processLabel)
 
+        self.coreUsageLabel = QtWidgets.QLabel('No application selected')
+        layout.addWidget(self.coreUsageLabel)
+
         self.selectProcessButton = QtWidgets.QPushButton('Select Application')
         self.selectProcessButton.clicked.connect(self.openProcessSelector)
         layout.addWidget(self.selectProcessButton)
@@ -93,20 +97,23 @@ class CPULimiterUI(QtWidgets.QMainWindow):
         self.coreComboBox.addItems([str(i) for i in range(1, os.cpu_count() + 1)])
         layout.addWidget(self.coreComboBox)
 
-        self.limitButton = QtWidgets.QPushButton('Limit CPU Cores')
-        self.limitButton.clicked.connect(self.limitCPUCores)
-        layout.addWidget(self.limitButton)
-
         self.keyBindingsListWidget = QtWidgets.QListWidget()
         layout.addWidget(self.keyBindingsListWidget)
 
+        buttonLayout = QtWidgets.QHBoxLayout()
         self.addKeyBindingButton = QtWidgets.QPushButton('Add Key Binding')
         self.addKeyBindingButton.clicked.connect(self.openKeyBinder)
-        layout.addWidget(self.addKeyBindingButton)
+        buttonLayout.addWidget(self.addKeyBindingButton)
 
         self.removeKeyBindingButton = QtWidgets.QPushButton('Remove Selected Key Binding')
         self.removeKeyBindingButton.clicked.connect(self.removeSelectedKeyBinding)
-        layout.addWidget(self.removeKeyBindingButton)
+        buttonLayout.addWidget(self.removeKeyBindingButton)
+
+        layout.addLayout(buttonLayout)
+
+        self.limitButton = QtWidgets.QPushButton('Limit CPU Cores')
+        self.limitButton.clicked.connect(self.limitCPUCores)
+        layout.addWidget(self.limitButton)
 
         centralWidget.setLayout(layout)
 
@@ -179,6 +186,7 @@ class CPULimiterUI(QtWidgets.QMainWindow):
                 self.processLabel.setText(f'Selected PID: {selected_pid} ({self.selected_executable})')
                 self.processLabel.show()
                 self.updateKeyBindingsList()
+                self.updateCoreUsageLabel()
 
     def limitCPUCores(self):
         if hasattr(self, 'selected_pid'):
@@ -187,6 +195,7 @@ class CPULimiterUI(QtWidgets.QMainWindow):
             p = psutil.Process(pid)
             p.cpu_affinity(list(range(num_cores)))
             print(f"Limited process {pid} to {num_cores} CPU cores")
+            self.updateCoreUsageLabel()
         else:
             print("No process selected")
 
@@ -196,6 +205,16 @@ class CPULimiterUI(QtWidgets.QMainWindow):
             p = psutil.Process(pid)
             p.cpu_affinity(list(range(num_cores)))
             print(f"Limited process {pid} to {num_cores} CPU cores")
+            self.updateCoreUsageLabel()
+
+    def updateCoreUsageLabel(self):
+        if hasattr(self, 'selected_pid'):
+            pid = self.selected_pid
+            p = psutil.Process(pid)
+            num_cores = len(p.cpu_affinity())
+            self.coreUsageLabel.setText(f"Current CPU core usage: {num_cores} cores")
+        else:
+            self.coreUsageLabel.setText("No application selected")
 
     def keyPressEvent(self, event):
         key = QtGui.QKeySequence(event.key()).toString()
