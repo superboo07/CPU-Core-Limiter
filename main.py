@@ -9,6 +9,29 @@ from PyQt5 import QtWidgets, QtGui
 
 def resource_path(relative_path):
     return os.path.abspath(os.path.join(os.path.dirname(__file__), relative_path))
+
+def check_root_access():
+    if os.name == 'nt':
+        return  # Skip root check on Windows
+    if os.geteuid() != 0:
+        password, ok = QtWidgets.QInputDialog.getText(None, 'Root Password Required', 'Enter root password:', QtWidgets.QLineEdit.Password)
+        if ok and password:
+            command = f'echo {password} | sudo -S -p "" true'
+            result = os.system(command)
+            if result == 0:
+                print("Root access granted")
+                restart_with_root()
+            else:
+                print("Failed to gain root access")
+                sys.exit(1)
+        else:
+            print("Root access required")
+            sys.exit(1)
+
+def restart_with_root():
+    script_path = os.path.abspath(__file__)
+    os.execvpe('sudo', ['sudo', 'python3', script_path], os.environ)
+
 class ProcessSelectorDialog(QtWidgets.QDialog):
     def __init__(self):
         super().__init__()
@@ -44,28 +67,6 @@ class ProcessSelectorDialog(QtWidgets.QDialog):
                 return None
         return None
 
-def check_root_access():
-    if os.name == 'nt':
-        return  # Skip root check on Windows
-    if os.geteuid() != 0:
-        password, ok = QtWidgets.QInputDialog.getText(None, 'Root Password Required', 'Enter root password:', QtWidgets.QLineEdit.Password)
-        if ok and password:
-            command = f'echo {password} | sudo -S -p "" true'
-            result = os.system(command)
-            if result == 0:
-                print("Root access granted")
-                restart_with_root()
-            else:
-                print("Failed to gain root access")
-                sys.exit(1)
-        else:
-            print("Root access required")
-            sys.exit(1)
-
-def restart_with_root():
-    script_path = os.path.abspath(__file__)
-    os.execvpe('sudo', ['sudo', 'python3', script_path], os.environ)
-
 class CPULimiterUI(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
@@ -77,10 +78,7 @@ class CPULimiterUI(QtWidgets.QMainWindow):
     def initUI(self):
         self.setWindowTitle('CPU Core Limiter')
         self.setGeometry(100, 100, 400, 200)
-        # Waiting a second fixes a bug where the 
-        # icon doesn't show up in packaged builds
-        time.sleep(1) 
-        self.setWindowIcon(QtGui.QIcon('icon.ico'))
+        self.setWindowIcon(QtGui.QIcon(resource_path("icon.ico")))
 
         centralWidget = QtWidgets.QWidget()
         self.setCentralWidget(centralWidget)
@@ -241,7 +239,7 @@ class KeyBinderDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.setWindowTitle('Bind Keys to CPU Core Counts')
         self.setGeometry(100, 100, 300, 200)
-        self.setWindowIcon(QtGui.QIcon('icon.ico'))
+        self.setWindowIcon(QtGui.QIcon(resource_path("icon.ico")))
 
         layout = QtWidgets.QVBoxLayout()
 
