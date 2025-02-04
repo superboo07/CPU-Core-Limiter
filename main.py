@@ -3,7 +3,7 @@ import psutil
 import os
 import keyboard
 import xml.etree.ElementTree
-import time
+import webbrowser
 
 from PyQt5 import QtWidgets, QtGui
 
@@ -124,6 +124,11 @@ class CPULimiterUI(QtWidgets.QMainWindow):
 
         centralWidget.setLayout(layout)
 
+        aboutAction = QtWidgets.QAction('About', self)
+        aboutAction.triggered.connect(self.showAboutDialog)
+        self.toolbar = self.addToolBar('About')
+        self.toolbar.addAction(aboutAction)
+
     def openKeyBinder(self):
         dialog = KeyBinderDialog(self)
         if dialog.exec_() == QtWidgets.QDialog.Accepted:
@@ -233,6 +238,39 @@ class CPULimiterUI(QtWidgets.QMainWindow):
                     p = psutil.Process(pid)
                     p.cpu_affinity(list(range(num_cores)))
                 break
+
+    def showAboutDialog(self):
+        dialog = AboutDialog(self)
+        dialog.exec_()
+
+class AboutDialog(QtWidgets.QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('About')
+        self.setGeometry(100, 100, 400, 300)
+        self.setWindowIcon(QtGui.QIcon(resource_path("icon.ico")))
+
+        layout = QtWidgets.QVBoxLayout()
+
+        self.creditToMe = QtWidgets.QLabel('Created with ❤️ by superboo07')
+        layout.addWidget(self.creditToMe)
+
+        self.licenseText = QtWidgets.QTextEdit()
+        self.licenseText.setReadOnly(True)
+        layout.addWidget(self.licenseText)
+
+        with open(resource_path("LICENSE"), "r") as file:
+            license_text = file.read()
+            self.licenseText.setPlainText(license_text)
+
+        self.githubButton = QtWidgets.QPushButton('GitHub')
+        self.githubButton.clicked.connect(self.openGitHubPage)
+        layout.addWidget(self.githubButton)
+
+        self.setLayout(layout)
+
+    def openGitHubPage(self):
+        webbrowser.open('https://github.com/superboo07/CPU-Core-Limiter')
 
 class KeyBinderDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
